@@ -1,0 +1,429 @@
+    1  gcloud auth list
+    2  gcloud config list project
+    3  gcloud services enable   workflows.googleapis.com   workflowexecutions.googleapis.com   eventarc.googleapis.com   tasks.googleapis.com   cloudscheduler.googleapis.com   storage.googleapis.com   vision.googleapis.com   run.googleapis.com   cloudfunctions.googleapis.com   firestore.googleapis.com   appengine.googleapis.com   cloudbuild.googleapis.com   artifactregistry.googleapis.com
+    4  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+    5  gcloud storage buckets create   --location=us-east1 gs://${UPLOAD_BUCKET}
+    6  gcloud storage buckets update   gs://${UPLOAD_BUCKET} --uniform-bucket-level-access
+    7  gcloud storage buckets add-iam-policy-binding   gs://${UPLOAD_BUCKET}   --member=allUsers --role=roles/storage.objectViewer
+    8  export GENERATED_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+    9  gcloud storage buckets create  --location=us-east1 gs://${GENERATED_BUCKET}
+   10  gcloud storage buckets update   gs://${GENERATED_BUCKET} --uniform-bucket-level-access
+   11  gcloud storage buckets add-iam-policy-binding   gs://${GENERATED_BUCKET}   --member=allUsers --role=roles/storage.objectViewer
+   12  gcloud buckets list
+   13  gcloud storage buckets list
+   14  export FIRESTORE_LOCATION=us-east1
+   15  gcloud firestore databases create   --location=${FIRESTORE_LOCATION}   --type=firestore-native
+   16  gcloud firestore indexes composite create   --collection-group=images   --field-config field-path=thumbnail,order=descending   --field-config field-path=created,order=descending   --async
+   17  export QUEUE_REGION=us-east1
+   18  gcloud tasks queues create thumbnail-task-queue   --location=${QUEUE_REGION}
+   19  git clone --depth=1 https://github.com/GoogleCloudPlatform/training-data-analyst
+   20  ls -la
+   21  cd training-data-analyst/courses/orchestration-and-choreography/lab1/
+   22  ls 
+   23  ln -s ~/training-data-analyst/courses/orchestration-and-choreography/lab1 ~/code
+   24  ls
+   25  export REPO_NAME=image-app-repo
+   26  export REPO_REGION=us-east1
+   27  gcloud artifacts repositories create ${REPO_NAME}   --location=${REPO_REGION} --repository-format=docker
+   28  export REPO_NAME=image-app-repo
+   29  export REPO_REGION=us-east1
+   30  export THUMBNAIL_SERVICE_NAME=create-thumbnail
+   31  cd ~/code/cloud-run/create-thumbnail
+   32  gcloud builds submit   .   --tag ${REPO_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${REPO_NAME}/${THUMBNAIL_SERVICE_NAME}
+   33  export REPO_NAME=image-app-repo
+   34  export REPO_REGION=us-east1
+   35  export THUMBNAIL_SERVICE_REGION=us-east1
+   36  export THUMBNAIL_SERVICE_NAME=create-thumbnail
+   37  export GENERATED_IMAGES_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+   38  cd ~/code/cloud-run/create-thumbnail
+   39  gcloud config set run/region ${THUMBNAIL_SERVICE_REGION}
+   40  gcloud config set run/platform managed
+   41  gcloud run deploy ${THUMBNAIL_SERVICE_NAME}   --image ${REPO_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${REPO_NAME}/${THUMBNAIL_SERVICE_NAME}   --no-allow-unauthenticated   --memory=1Gi   --max-instances=1   --update-env-vars GENERATED_IMAGES_BUCKET=${GENERATED_IMAGES_BUCKET}export REPO_NAME=image-app-repo
+   42  export REPO_REGION=us-east1
+   43  export THUMBNAIL_SERVICE_REGION=us-east1
+   44  export THUMBNAIL_SERVICE_NAME=create-thumbnail
+   45  export GENERATED_IMAGES_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+   46  cd ~/code/cloud-run/create-thumbnail
+   47  gcloud config set run/region ${THUMBNAIL_SERVICE_REGION}
+   48  gcloud config set run/platform managed
+   49  gcloud run deploy ${THUMBNAIL_SERVICE_NAME}   --image ${REPO_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${REPO_NAME}/${THUMBNAIL_SERVICE_NAME}   --no-allow-unauthenticated   --memory=1Gi   --max-instances=1   --update-env-vars GENERATED_IMAGES_BUCKET=${GENERATED_IMAGES_BUCKET}
+   50  export REPO_NAME=image-app-repo
+   51  export REPO_REGION=us-east1
+   52  export COLLAGE_SERVICE_REGION=us-east1
+   53  export COLLAGE_SERVICE_NAME=create-collage
+   54  export GENERATED_IMAGES_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+   55  cd ~/code/cloud-run/create-collage
+   56  gcloud builds submit   .   --tag ${REPO_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${REPO_NAME}/${COLLAGE_SERVICE_NAME}
+   57  gcloud config set run/region ${COLLAGE_SERVICE_REGION}
+   58  gcloud config set run/platform managed
+   59  gcloud run deploy ${COLLAGE_SERVICE_NAME}   --image ${REPO_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${REPO_NAME}/${COLLAGE_SERVICE_NAME}   --no-allow-unauthenticated   --memory=1Gi   --max-instances=1   --update-env-vars GENERATED_IMAGES_BUCKET=${GENERATED_IMAGES_BUCKET}
+   60  export DELETE_SERVICE_REGION=us-east1
+   61  export DELETE_SERVICE_NAME=delete-image
+   62  export GENERATED_IMAGES_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+   63  cd ~/code/cloud-run/delete-image
+   64  npm install
+   65  gcloud config set run/region ${DELETE_SERVICE_REGION}
+   66  gcloud config set run/platform managed
+   67  gcloud run deploy ${DELETE_SERVICE_NAME}   --source .   --no-allow-unauthenticated   --max-instances=1   --update-env-vars GENERATED_IMAGES_BUCKET=${GENERATED_IMAGES_BUCKET}
+   68  export EXTRACT_FUNCTION_REGION=us-east1
+   69  export EXTRACT_FUNCTION_NAME=extract-image-metadata
+   70  cd ~/code/cloud-functions/${EXTRACT_FUNCTION_NAME}
+   71  gcloud config set functions/region ${EXTRACT_FUNCTION_REGION}
+   72  gcloud functions deploy ${EXTRACT_FUNCTION_NAME}       --gen2       --source .       --runtime=nodejs20   --entry-point=extract_image_metadata       --trigger-http       --no-allow-unauthenticated
+   73  export WORKFLOWS_SA=workflows-sa
+   74  export THUMBNAIL_SERVICE_NAME=create-thumbnail
+   75  export THUMBNAIL_SERVICE_REGION=us-east1
+   76  export EXTRACT_FUNCTION_NAME=extract-image-metadata
+   77  gcloud functions add-iam-policy-binding ${EXTRACT_FUNCTION_NAME}   --member="serviceAccount:${WORKFLOWS_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/cloudfunctions.invoker"
+   78  gcloud run services add-iam-policy-binding ${THUMBNAIL_SERVICE_NAME}   --region=${THUMBNAIL_SERVICE_REGION}   --member="serviceAccount:${WORKFLOWS_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/run.viewer"
+   79  gcloud run services add-iam-policy-binding ${THUMBNAIL_SERVICE_NAME}   --region=${THUMBNAIL_SERVICE_REGION}   --member="serviceAccount:${WORKFLOWS_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/run.invoker"
+   80  export WORKFLOW_NAME=image-add-workflow
+   81  export WORKFLOW_REGION=us-east1
+   82  export WORKFLOWS_SA=workflows-sa
+   83  cd ~/code/workflows
+   84  gcloud workflows deploy ${WORKFLOW_NAME}   --source=${WORKFLOW_NAME}.yaml   --location=${WORKFLOW_REGION}   --service-account="${WORKFLOWS_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+   85  export WORKFLOW_NAME=image-add-workflow
+   86  export WORKFLOW_REGION=us-east1
+   87  export WORKFLOWS_SA=workflows-sa
+   88  cd ~/code/workflows
+   89  gcloud workflows deploy ${WORKFLOW_NAME}   --source=${WORKFLOW_NAME}.yaml   --location=${WORKFLOW_REGION}   --service-account="${WORKFLOWS_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+   90  export WORKFLOW_TRIGGER_SA=workflow-trigger-sa
+   91  gcloud iam service-accounts create ${WORKFLOW_TRIGGER_SA}
+   92  gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT}   --member="serviceAccount:${WORKFLOW_TRIGGER_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/workflows.invoker"
+   93  gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT}   --member "serviceAccount:${WORKFLOW_TRIGGER_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/eventarc.eventReceiver"
+   94  export CLOUD_STORAGE_SA="$(gcloud storage service-agent)"
+   95  gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT}   --member="serviceAccount:${CLOUD_STORAGE_SA}"   --role="roles/pubsub.publisher"
+   96  export WORKFLOW_TRIGGER_REGION=us-east1
+   97  export WORKFLOW_NAME=image-add-workflow
+   98  export WORKFLOW_REGION=us-east1
+   99  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  100  export WORKFLOW_TRIGGER_SA=workflow-trigger-sa
+  101  gcloud eventarc triggers create image-add-trigger   --location=${WORKFLOW_TRIGGER_REGION}   --destination-workflow=${WORKFLOW_NAME}   --destination-workflow-location=${WORKFLOW_REGION}   --event-filters="type=google.cloud.storage.object.v1.finalized"   --event-filters="bucket=${UPLOAD_BUCKET}"   --service-account="${WORKFLOW_TRIGGER_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+  102  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  103  export IMAGE_NAME=neon.jpg
+  104  gcloud storage cp ~/code/images/${IMAGE_NAME} gs://${UPLOAD_BUCKET}
+  105  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  106  export GENERATED_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+  107  export IMAGE_NAME=neon.jpg
+  108  echo "uploaded image: https://storage.googleapis.com/${UPLOAD_BUCKET}/${IMAGE_NAME}"
+  109  echo "generated image: https://storage.googleapis.com/${GENERATED_BUCKET}/${IMAGE_NAME}"
+  110  echo "Listing of generated-images bucket:"
+  111  gcloud storage ls gs://${GENERATED_BUCKET}
+  112  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  113  gcloud storage cp ~/code/images/alley.jpg   gs://${UPLOAD_BUCKET}
+  114  gcloud storage cp ~/code/images/desktop.jpg   gs://${UPLOAD_BUCKET}
+  115  gcloud storage cp ~/code/images/rainbow.jpg   gs://${UPLOAD_BUCKET}
+  116  gcloud storage cp ~/code/images/vegas.jpg   gs://${UPLOAD_BUCKET}
+  117  export COLLAGE_SCHED_SA=collage-schedule-sa
+  118  export COLLAGE_SERVICE=create-collage
+  119  export COLLAGE_SERVICE_REGION=us-east1
+  120  gcloud iam service-accounts create ${COLLAGE_SCHED_SA}
+  121  gcloud run services add-iam-policy-binding ${COLLAGE_SERVICE}   --region=${COLLAGE_SERVICE_REGION}   --member="serviceAccount:${COLLAGE_SCHED_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/run.invoker"
+  122  export COLLAGE_SCHED_SA=collage-schedule-sa
+  123  export COLLAGE_SERVICE=create-collage
+  124  export COLLAGE_SERVICE_REGION=us-east1
+  125  gcloud iam service-accounts create ${COLLAGE_SCHED_SA}
+  126  gcloud run services add-iam-policy-binding ${COLLAGE_SERVICE}   --region=${COLLAGE_SERVICE_REGION}   --member="serviceAccount:${COLLAGE_SCHED_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/run.invoker"
+  127  export SERVICE_REGION=us-east1
+  128  export SERVICE_NAME=create-collage
+  129  gcloud run services describe ${SERVICE_NAME}   --platform managed   --region ${SERVICE_REGION}   --format 'value(status.url)'
+  130  export GENERATED_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+  131  export IMAGE_NAME=collage.png
+  132  echo "generated collage: https://storage.googleapis.com/${GENERATED_BUCKET}/${IMAGE_NAME}"
+  133  echo "Listing of generated-images bucket:"
+  134  gcloud storage ls gs://${GENERATED_BUCKET}
+  135  export GENERATED_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+  136  export IMAGE_NAME=collage.png
+  137  echo "generated collage: https://storage.googleapis.com/${GENERATED_BUCKET}/${IMAGE_NAME}"
+  138  echo "Listing of generated-images bucket:"
+  139  gcloud storage ls gs://${GENERATED_BUCKET}
+  140  export DELETE_TRIGGER_SA=delete-image-trigger-sa
+  141  export DELETE_SERVICE_REGION=us-east1
+  142  export DELETE_SERVICE=delete-image
+  143  gcloud iam service-accounts create ${DELETE_TRIGGER_SA}
+  144  gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT}   --member "serviceAccount:${DELETE_TRIGGER_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/eventarc.eventReceiver"
+  145  gcloud run services add-iam-policy-binding ${DELETE_SERVICE}   --region=${DELETE_SERVICE_REGION}   --member="serviceAccount:${DELETE_TRIGGER_SA}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"   --role="roles/run.invoker"
+  146  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  147  export GENERATED_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+  148  export IMAGE_NAME=vegas.jpg
+  149  echo "Listing of image in uploaded-images bucket:"
+  150  gcloud storage ls gs://${UPLOAD_BUCKET}/${IMAGE_NAME}
+  151  echo "Listing of image in generated-images bucket:"
+  152  gcloud storage ls gs://${GENERATED_BUCKET}/${IMAGE_NAME}
+  153  echo "Image document in Firestore:"
+  154  curl -q -s -H "Authorization: Bearer $(gcloud auth print-access-token)"   -X GET "https://firestore.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/databases/(default)/documents/images/${IMAGE_NAME}"
+  155  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  156  export IMAGE_NAME=vegas.jpg
+  157  gcloud storage rm gs://${UPLOAD_BUCKET}/${IMAGE_NAME}
+  158  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  159  export GENERATED_BUCKET=generated-images-${GOOGLE_CLOUD_PROJECT}
+  160  export IMAGE_NAME=vegas.jpg
+  161  echo "Listing of image in uploaded-images bucket:"
+  162  gcloud storage ls gs://${UPLOAD_BUCKET}/${IMAGE_NAME}
+  163  echo "Listing of image in generated-images bucket:"
+  164  gcloud storage ls gs://${GENERATED_BUCKET}/${IMAGE_NAME}
+  165  echo "Image document in Firestore:"
+  166  curl -q -s -H "Authorization: Bearer $(gcloud auth print-access-token)" -X GET "https://firestore.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/databases/(default)/documents/images/${IMAGE_NAME}"
+  167  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  168  export IMAGE_NAME=vegas.jpg
+  169  gcloud storage rm gs://${UPLOAD_BUCKET}/${IMAGE_NAME}
+  170  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  171  export IMAGE_NAME=vegas.jpg
+  172  gcloud storage rm gs://${UPLOAD_BUCKET}
+  173  export UPLOAD_BUCKET=uploaded-images-${GOOGLE_CLOUD_PROJECT}
+  174  gcloud storage rm gs://${UPLOAD_BUCKET}/
+  175  gcloud storage buckets list
+  176  gcloud storage rm gs://uploaded-images-qwiklabs-gcp-04-6a73c9dfdbe3
+  177  gcloud storage rm -r gs://uploaded-images-qwiklabs-gcp-04-6a73c9dfdbe3
+  178  gsutils storage buckets create gs://uploaded-images-qwiklabs-gcp-04-6a73c9dfdbe3
+  179  gcloud storage buckets create gs://ploaded-images-qwiklabs-gcp-04-6a73c9dfdbe3
+  180  gcloud storage buckets create gs://uploaded-images-qwiklabs-gcp-04-6a73c9dfdbe3
+  181  cd /home
+  182  ls
+  183  cd student_02_a2e29143d729/
+  184  ls
+  185  history --> cpd_01032025_1.txt
+
+
+
+I want to create a dynamic website with a high resolution map of Western Europe only, on google cloud . The only countries visible on the map would be Portugal, Spain, France, Germany, Austria, Poland and Switzerland. On this map, mark the locations Paderbon, Keil, Rostock, Berlin, Munich and Stuttgart in Germany with gif images of wind power plant. On Mouse over to any of the cities, the pointer displays the energy generated by each power plant. This data of power generation is stored in a google cloud data base.
+
+Creating a dynamic website with a high-resolution map of Western Europe, featuring specific German cities marked with animated wind power plant GIFs and displaying energy generation data from a Google Cloud database, involves several key steps and technologies. Here’s a breakdown of the architecture and process:
+
+1. Data Storage and Management:
+
+    Database: You'll need a database on Google Cloud Platform (GCP) to store the energy generation data for each wind power plant. Cloud SQL (PostgreSQL or MySQL) or Cloud Spanner would be suitable options depending on your scalability needs and data structure. Each entry should include city name, power plant location coordinates (latitude and longitude), and current energy generation figures. 
+
+2. Map and Visualization:
+
+    Map Provider: Google Maps Platform is a natural choice. Its JavaScript API allows for dynamic map creation, custom marker placement, and interactive elements. You could use a high-resolution base map of Western Europe, possibly customizing it to show only the specified countries.
+    Marker Implementation: For each city (Paderborn, Kiel, Rostock, Berlin, Munich, Stuttgart), you'll create custom markers using the Google Maps API. These markers will be GIFs of wind turbines. The API allows you to associate data (energy generation figures) with each marker.
+    Data Retrieval: The JavaScript code for your website will use the Google Maps API's functionality to fetch real-time energy generation data from your GCP database. You can achieve this using AJAX calls or a similar technique that interacts with your database's API without requiring page reloads.
+    Tooltip/Popup: On mouseover, a tooltip or popup should appear, displaying the energy generation data for the specific wind power plant. The Google Maps API provides functions to create these interactive elements. 
+
+3. Website Development:
+
+    Frontend: You'll need a frontend framework (like React, Angular, or Vue.js) to manage the dynamic content and user interaction on the webpage. This framework will handle communication with the Google Maps API and your database, updating the map and tooltips as data changes.
+    Backend (optional): A backend might be necessary, depending on your data retrieval approach. If you need more complex data processing or API endpoints, consider using something like Google App Engine, Cloud Functions, or Cloud Run.
+    Deployment: Deploy your website on Google Cloud using services like Google App Engine, Cloud Run, or Compute Engine, ensuring the chosen service is capable of serving the expected traffic. 
+
+4. Technology Stack (Example):
+
+    Backend: Cloud Run (for scalability and serverless functionality) or Cloud Functions (for smaller, event-driven tasks).
+    Database: Cloud SQL for MySQL or PostgreSQL.
+    Frontend: React with a suitable mapping library integrating Google Maps JavaScript API.
+    GIF Handling: You will need to manage the GIF files. Consider using Cloud Storage to host these files for easy access and efficient delivery. 
+
+Important Considerations:
+
+    Scalability: Design your database and website architecture to handle potential increases in traffic and data volume.
+    Security: Implement robust security measures to protect your database and API endpoints.
+    Error Handling: Include proper error handling in your code to manage unexpected situations (database errors, API failures).
+    API Keys: Securely manage your Google Maps Platform API key. 
+
+This is a high-level overview. The implementation requires programming skills (JavaScript, potentially Python for backend if you choose that route) and familiarity with Google Cloud Platform services. Remember to review Google Maps Platform's terms of service and pricing before starting your project.
+
+Rate this answer:
+Measuring climate and land changes with AI
+
+### Automating land cover classification Dynamic World uses [Google Earth Engine](https://earthengine.google.com/), AI, and Google cloud computing to **classify images of the planet into different land categories.** This resulting land cover dataset shares the probability of different land cover types on a per-pixel basis, which represents the real world more accurately. Historically, land cover datasets only assign one land cover class per pixel. Now, we have much more detailed information to derive final maps from. **Each pixel** provides the amazing granularity of **10 meters by 10 meters**, thanks to the open availability of [Copernicus Sentinel 2,](https://sentinel.esa.int/web/sentinel/missions/sentinel-2) a satellite constellation from the European Space Agency. Dynamic World is produced in partnership with Google and the [World Resource Institute](https://wri.org/). You can explore Dynamic World at [**dynamicworld.app**](http://dynamicworld.app/) If you are a Google Earth Engine user, **try loading it as an [image collection](https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_DYNAMICWORLD_V1)** in [Earth Engine's code editor](https://code.earthengine.google.com/) as **GOOGLE/DYNAMICWORLD/V1**. For non-commercial users, there's no cost for creating an Earth Engine account. You can also **visualize data** in a  [**custom web app**](https://earthoutreach.users.earthengine.app/view/dynamicworld)[.](http://dynamicworld.app/)  This app's interface enables you to **search** by location, and choose a desired **date range**. You can click a specific area to **dive into the model's classification confidence** via a chart. If you click on a point on the chart, you see the corresponding Sentinel-2 image that Dynamic World used to infer the land cover classification for that date. You can also toggle different **map layers** such as Satellite, Terrain or Google Maps basemap. Here's an example of how we can **see forest loss** after a **wildfire**. We visualize how **300,000 acres** of beautiful forest east of Chico, California were burned, and classified as shrubland **in a few days**. It's a **powerful sustainability platform** built on [Google Cloud](https://cloud.google.com/gcp?utm_source=google&utm_medium=cpc&utm_campaign=na-US-all-en-dr-bkws-all-all-trial-e-dr-1011347&utm_content=text-ad-none-any-DEV_c-CRE_491349594127-ADGP_Desk%20%7C%20BKWS%20-%20EXA%20%7C%20Txt%20~%20Google%20Cloud%20Platform%20Core-KWID_43700060017921803-aud-388092988201%3Akwd-6458750523&utm_term=KW_google%20cloud-ST_google%20cloud&gclsrc=aw.ds&gclid=CjwKCAjw7vuUBhBUEiwAEdu2pDvyxiy1IjnEDtCi9Ll4004z5tUmPa2qF9GspRTBKc1oBR7o8MVxsRoCVKwQAvD_BwE) and [Earth Engine](https://earthengine.google.com/). It helps unlock greater flexibility and timely insights compared to annual static maps built from manual curations. The core intention for this near real time land cover dataset is to encourage organizations to **build derivative maps so we can make wiser decisions to protect, manage and restore natural ecosystems.** The team expects NGOs, academia, the corporate sector, and existing users of land cover datasets, to use this data for **climate-related** research in agriculture, land use planning, conservation, and more. They are producing this dataset to support monitoring, forecasting, and decision making in the public sphere. Inspired by this wonderful project, we in **Developer Relations** explored how to approach this **Data Analytics and AI problem** in our [People and Planet AI series](http://goo.gle/PeopleAndPlanetAI). This project requires **combining many datasets** \*\*\*\* from different sources, and then computing labels for the entire Earth. We recommend you use the Dynamic World's dataset and app, but if you want to learn **how to get started** **with building a lightweight model** like Dynamic World's, keep reading.  A **geo-spatial multi-class classification model** is a fancy way of saying *"a model that classifies many things from satellite imagery."* To better understand this technology I also  recommend taking a look at our [**10 min YouTube video**](https://youtu.be/zImQf91ffFo), and our [interactive notebook](https://colab.research.google.com/github/GoogleCloudPlatform/python-docs-samples/blob/main/people-and-planet-ai/land-cover-classification/README.ipynb) with all our code. You can also find [Dynamic World's GitHub](https://github.com/google/dynamicworld). 
+GRAS helps build sustainable, ethical supply chains using Google Maps APIs and Google Cloud Platform
+
+# GRAS helps build sustainable, ethical supply chains using Google Maps APIs and Google Cloud Platform *Today we hear from Tal, managing director of Meo Carbon Solutions. Read how [Meo Carbon Solutions](http://meo-carbon.com/index_eng.html) and Google for Work Premier Partner [Wabion](http://www.wabion.com/en/homepage.html) used Google Maps APIs and Google Cloud Platform to develop Global Risk Assessment Services ([GRAS](https://www.gras-system.org/)). The tool provides reliable information about the ecological and social risks of expanding agriculture into natural habitats.* In the European Union, companies that sell biofuels must get certifications to show that producing their fuel — often made from agricultural crops — does not cause deforestation, the loss of biodiversity or the loss of carbon stocks. We established [GRAS](http://gst-prod.gras-system.org/webui/index.html#/worldmap/show) to provide a single tool to gather and visualize this data required to support a credible certification. Through GRAS, we've made this information accessible not only to governments and NGOs, but also to businesses, financial institutions and individuals. For example, a U.S. company buying soybean oil from Brazil can use GRAS to verify the ecological and social risk exposure of the mills and the farmers supplying the mills. We decided the most effective way to present this complex set of information was to build a web app that would overlay data from multiple sources on top of a map. Using this tool, auditors can compare before-and-after maps of a certain area, and based on changes to the habitat, either grant or deny certifications. To build GRAS, we partnered with IT consultant [Wabion](http://www.wabion.com/en/homepage.html), a Google for Work Premier Partner. After testing several map solutions, we chose Google Maps because of its high performance, ability to easily integrate data from multiple sources, flexible APIs, solid support and large user community. The GRAS website combines mapping information with data from dozens of government agencies, nongovernmental organizations (NGOs) and other global databases. It uses the [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/) to display the base maps for the site. The API also visualizes layers and more than 100 types of data — including agriculture, deforestation and social welfare — on top of the maps. Users can upload and visualize their own data sets. The [Google Maps Geocoding API](https://developers.google.com/maps/documentation/geocoding/intro)verifies map locations, and the [Google Maps Places API](https://developers.google.com/places/) autocomplete makes it easy for site users to choose locations that they want to learn about. GRAS is powered by the [Google Cloud Platform](https://cloud.google.com/) — specifically, [Google App Engine](https://cloud.google.com/appengine/) and [Google Compute Engine](https://cloud.google.com/compute/). Combining these services with the Google Maps APIs lets us handle geodata in a 10-terabyte database, which hosts more than 100 layers, many of them extremely large. We've recently expanded GRAS beyond our original mission to provide insights for other industries by expanding the data layered on top of maps. We've included new information on biodiversity, land-use changes, and available carbon stock. We've also been able to incorporate numerous measurements of social health — ranging from the Global Slavery Index to the Global Hunger Index and the UNICEF index of access to drinking water and sanitation. Through GRAS, we've made this information accessible not only to governments and NGOs, but also to businesses, financial institutions and individuals. For example, a U.S. company buying soybean oil from Brazil can use GRAS to verify the ecological and social risk exposure of the mills and the farmers supplying the mills. Far exceeding our initial vision, the GRAS website combines transparency with the power of technology to help users in wide-ranging industries, —from food, to chemicals and energy — operate environmentally and socially sound supply chains.
+GRAS Case Study  |  Google Cloud
+
+## About Wabion ### Google Maps Platform Results - Ability to handle 10-terabytes of geodata - Visualize layers of more than 100 data types — including agriculture, deforestation and social welfare — on top of the map - Enable users to upload and visualize their own data sets or easily search locations with the Autocomplete feature 10-terabytes of geodata "Through GRAS, we've made this information accessible not only to governments and NGOs, but also to businesses, financial institutions and individuals. We provide social indices because companies with international supply chains have a great deal of interest in getting an understanding of what the social conditions are in a producing area or country: there are several countries with problems of forced labor and child labor, and providing that information on the GRAS site, auditors and representatives of companies can see if there are any supply chain social problems in that area." — *Dr. Norbert Schmitz, Managing Director, Meo Carbon Solutions* Meo Carbon Solutions developed Global Risk Assessment Services (GRAS) a Maps-based tool to provide reliable information about the ecological and social risks of expanding agriculture into natural habitats. GRAS partnered with IT consultant Wabion, a Google Premier Partner, to build the website. They tested several map solutions, including open source options, but chose Google Maps Platform because of its high performance, ability to easily integrate data from multiple sources, flexible APIs, solid support and large user community. The tool combines mapping information with data from dozens of government agencies, NGOs and other global databases. The GRAS site has gone beyond its original mission, expanding the data it can layer upon maps to include about biodiversity, land-use changes, available carbon stock, as well as numerous measurements of social health, ranging from the Global Slavery Index to the Global Hunger Index, and the UNICEF index of access to drinking water and sanitation.
+please provide the code for each step.
+
+I cannot provide the complete code for your project because it's a significant undertaking requiring substantial coding across frontend and backend, database design, and integration with the Google Maps Platform and potentially other GCP services. However, I can offer structural guidance and code snippets to illustrate key components. Remember to replace placeholders like YOUR_DATABASE_CONNECTION_STRING , YOUR_API_KEY , etc. with your actual values.
+
+1. Database Schema (Cloud SQL Example - adapt to your choice of database):
+
+Let's assume you're using Cloud SQL for PostgreSQL. Your table might look like this:
+
+Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
+
+2. Backend (Node.js with Express.js Example - adapt to your chosen backend):
+
+This backend endpoint retrieves data from your database:
+
+Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
+
+3. Frontend (JavaScript with Google Maps API and React Example):
+
+This React component fetches data and renders the map:
+
+Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
+
+Remember:
+
+    This is a highly simplified example. You'll need to handle errors, loading states, and potentially more sophisticated map interactions.
+    You'll need to set up your Google Cloud project, enable the necessary APIs (Google Maps Platform, Cloud SQL), and configure authentication correctly.
+    The GIF handling will require careful consideration of file sizes and efficient loading strategies to avoid performance issues.
+    Error handling is crucial throughout the application. The examples above lack robust error handling which should be included in a production-ready app. 
+
+This detailed outline should give you a much better starting point for building your project. You will need substantial programming skills to complete the implementation.
+
+Rate this answer:
+Flow configuration reference  |  Apigee  |  Google Cloud
+
+# Flow configuration reference  |  Apigee  |  Google Cloud ## ` <Step> ` ### Syntax The following example shows the syntax for the flow configuration elements. Each of these elements is described in detail in the sections that follow: ``` text <!-- ProxyEndpoint flow configuration file --> <ProxyEndpoint ... > ... <PreFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PreFlow> <Flows name="flow_name"> <Flow name="conditional_flow_name"> <Description>flow_description</Description> <Condition>property operator "value"</Condition> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </Flow> </Flows> <PostFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PostFlow> <PostClientFlow name="flow_name"> <Description>flow_description</Description> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PostClientFlow> ... </ProxyEndpoint> <!-- TargetEndpoint flow configuration file --> <TargetEndpoint ... > ... <PreFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PreFlow> <Flows name="flow_name"> <Flow name="conditional_flow_name"> <Description>flow_description</Description> <Condition>property operator "value"</Condition> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </Flow> ... </Flows> <PostFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PostFlow> ... </TargetEndpoint> ``` You use these elements to define your PreFlow, Conditional Flow, PostFlow, and PostClientFlow execution.
+Flow configuration reference  |  Apigee Edge  |  Apigee Docs
+
+# Flow configuration reference  |  Apigee Edge  |  Apigee Docs ## ` <Step> ` ### Syntax The following example shows the syntax for the flow configuration elements. Each of these elements is described in detail in the sections that follow: ``` text <!-- ProxyEndpoint flow configuration file --> <ProxyEndpoint ... > ... <PreFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PreFlow> <Flows name="flow_name"> <Flow name="conditional_flow_name"> <Description>flow_description</Description> <Condition>property operator "value"</Condition> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </Flow> </Flows> <PostFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PostFlow> <PostClientFlow name="flow_name"> <Description>flow_description</Description> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PostClientFlow> ... </ProxyEndpoint> <!-- TargetEndpoint flow configuration file --> <TargetEndpoint ... > ... <PreFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PreFlow> <Flows name="flow_name"> <Flow name="conditional_flow_name"> <Description>flow_description</Description> <Condition>property operator "value"</Condition> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </Flow> ... </Flows> <PostFlow name="flow_name"> <Description>flow_description</Description> <Request> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Request> <Response> <Step> <Condition>property operator "value"</Condition> <Name>policy_name</Name> </Step> ... </Response> </PostFlow> ... </TargetEndpoint> ``` You use these elements to define your PreFlow, Conditional Flow, PostFlow, and PostClientFlow execution.
+
+Currently (Saturday, 2025-03-01) it's Partly cloudy. The chance of rain is around 0%. The temperature is 43 °F (6.12 °C). It feels like 34.8 °F (1.56 °C). The humidity is around 66%.
+what would I need to develop such a website on my MacBook pro locally and not on Google cloud?
+
+To develop the website locally on your MacBook Pro before deploying to Google Cloud, you'll need the following:
+
+1. Development Environment:
+
+    Code Editor/IDE: Choose a code editor or Integrated Development Environment (IDE) you're comfortable with. Popular choices include Visual Studio Code, Sublime Text, Atom, WebStorm, or IntelliJ IDEA. These provide features like syntax highlighting, code completion, debugging tools, and extensions to enhance development.
+    Node.js and npm (or yarn): Node.js is a JavaScript runtime environment that allows you to run JavaScript code outside a web browser. npm (Node Package Manager) or yarn is a package manager for Node.js, used to install and manage dependencies for your project. You'll need these for frontend development and potentially the backend if you choose to build one using Node.js.
+    Local Database: You'll need a local database to mimic your Cloud SQL instance. Popular options include PostgreSQL, MySQL, or SQLite. Download and install the database system you selected and set it up according to its documentation. Import your database schema (as described in the previous response) and some sample data into your local instance. It's advisable to use a database system that mirrors the one you intend to use on GCP to reduce migration issues later.
+    Google Maps API Key: Obtain a Google Maps JavaScript API key. This key is necessary to interact with Google Maps within your application. You will get this key through your Google Cloud account.
+    GIF Images: Gather your GIF images of wind power plants. Ensure these are appropriately sized and optimized for web use. 
+
+2. Software Setup:
+
+    Install Node.js and npm/yarn: Download and install the appropriate packages from the official Node.js website.
+    Install Database System: Install and configure your chosen database system (PostgreSQL, MySQL, or SQLite) following the instructions provided by its official documentation.
+    Install Code Editor: Download and install your preferred code editor or IDE from its official website. Install any necessary extensions (like those for JavaScript and HTML/CSS).
+    Create Project Directory: Create a folder where you'll keep all your project files.
+    Install Dependencies: Use npm or yarn to install the necessary libraries for your frontend framework (e.g., React, Vue, or Angular if you choose one) and for interacting with the Google Maps API and your database. 
+
+3. Project Structure:
+
+You'll need to organize your project files logically. A common structure might be:
+
+Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
+
+4. Development Process:
+
+    Database Setup: Create the database and tables according to the schema provided earlier, populating them with sample data for local testing.
+    Backend (Optional): If you're using a backend, develop the API endpoints for retrieving data from your local database.
+    Frontend Development: Create your React (or other framework) components, integrating the Google Maps API to display the map, place markers (GIFs), and display energy generation data in tooltips.
+    Testing: Thoroughly test your website locally. Ensure that data retrieval, map display, marker placement, and tooltip functionality work correctly before deploying to Google Cloud. 
+
+By following these steps, you can fully develop and test your website on your local machine using the necessary tools. This process ensures a smoother transition to deploying on Google Cloud Platform later. Remember to consult documentation for your chosen database system, code editor, and JavaScript framework for detailed instructions on their usage and configuration.
+
+Rate this answer:
+Firebase Summit | Learn
+
+## Learn ### Pathways #### Local development with the Firebase Emulator Suite Learn how to develop and test a web app completely locally and offline using the Firebase Emulator Suite
+Website hosting  |  Cloud Architecture Center  |  Google Cloud
+
+# Website hosting  |  Cloud Architecture Center  |  Google Cloud ## What's next ### Setting up manually You can also create your infrastructure on Compute Engine manually, either building your configuration from scratch or building on a Google Cloud Marketplace deployment. For example, you might want to use a version of a software component not offered by Cloud Marketplace, or perhaps you prefer to install and configure everything on your own. Providing a complete framework and best practices for setting up a website is beyond the scope of this article. But from a high-level view, the technical side of setting up a web-hosting infrastructure on Compute Engine requires that you: - **Understand the requirements** . If you're building a new website, make sure you understand the components you need, such as instances, storage needs, and networking infrastructure. If you're migrating your app from an existing solution, you probably already understand these requirements, but you need think through how your existing setup maps to [Google Cloud services](https://cloud.google.com/docs/overview/cloud-platform-services) . - **Plan the design** . Think through your architecture and write down your design. Be as explicit as you can. - **Create the components** . The components that you might usually think of as physical assets, such as computers and network switches, are provided through services in Compute Engine. For example, if you want a computer, you have to create a Compute Engine instance. If you want a persistent hard disk drive, you create that, too. Infrastructure as code tools, such as [Terraform](https://www.terraform.io/) , makes this an easy and repeatable process. - **Configure and customize.** After you have the components you want, you need to configure them, install and configure software, and write and deploy any customization code that you require. You can replicate the configuration by running shell scripts, which helps to speed future deployments. Terraform helps here, too, by providing declarative, flexible configuration templates for automatic deployment of resources. You can also take advantage of IT automation tools such as [Puppet](https://puppet.com/) and [Chef](https://www.chef.io/) . - **Deploy the assets** . Presumably, you have web pages and images. - **Test** . Verify that everything works as you expect. - **Deploy to production** . Open up your site for the world to see and use.
+Load and display images from the internet  |  Android Developers 
+
+
+
+
+
+my-wind-map-project/
+├── client/          // Frontend code (React, etc.)
+│   ├── src/
+│   │   ├── components/
+│   │   ├── App.js (or equivalent)
+│   │   └── ...
+│   └── package.json
+├── server/          // Backend code (if using one - optional)
+│   └── ...
+└── database/       // Database scripts and data
+
+CREATE TABLE wind_farms (
+    id SERIAL PRIMARY KEY,
+    city VARCHAR(255) NOT NULL,
+    latitude FLOAT NOT NULL,
+    longitude FLOAT NOT NULL,
+    energy_generation INT  -- Or a more appropriate data type for energy units
+);
+
+
+const express = require('express');
+const { Pool } = require('pg'); // Or your database driver
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+const pool = new Pool({
+  connectionString: 'YOUR_DATABASE_CONNECTION_STRING'
+});
+
+app.get('/api/windfarms', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM wind_farms');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    res.status(500).json({ error: 'Failed to fetch data' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});
+
+
+import React, { useState, useEffect } from 'react';
+
+function MapComponent() {
+  const [windFarms, setWindFarms] = useState([]);
+  const [map, setMap] = useState(null);
+
+  useEffect(() => {
+    const fetchWindFarmData = async () => {
+      const response = await fetch('/api/windfarms');
+      const data = await response.json();
+      setWindFarms(data);
+    };
+
+    fetchWindFarmData();
+  }, []);
+
+  useEffect(() => {
+    if (windFarms.length > 0 && !map) {
+      const mapOptions = {
+        center: { lat: 50, lng: 10 }, // Center of Western Europe
+        zoom: 6,
+        mapTypeId: 'terrain' //Or roadmap etc. Choose appropriate map type
+      };
+      const newMap = new window.google.maps.Map(document.getElementById('map'), mapOptions);
+      setMap(newMap);
+
+      windFarms.forEach(farm => {
+        const marker = new window.google.maps.Marker({
+          position: { lat: farm.latitude, lng: farm.longitude },
+          map: newMap,
+          icon: { // replace with path to your GIF
+            url: 'path/to/wind_turbine.gif',
+            scaledSize: new window.google.maps.Size(50, 50)
+          }
+        });
+
+        const infowindow = new window.google.maps.InfoWindow({
+          content: `Energy Generated: ${farm.energy_generation}`
+        });
+
+        marker.addListener('mouseover', () => {
+          infowindow.open(newMap, marker);
+        });
+
+        marker.addListener('mouseout', () => {
+          infowindow.close();
+        });
+      });
+    }
+  }, [windFarms]);
+
+  return <div id="map" style={{ height: '600px', width: '100%' }} />;
+}
+
+export default MapComponent;
+
+
+
+
+
+
